@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Activity, Armchair, ArrowRight, ArrowUpRight, Atom,
+  Activity, Armchair, ArrowRight, ArrowUpRight, Atom, BadgeCheck,
   Bell, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronDown, Clock3,
   Cpu, DoorOpen, FlaskConical, LayoutDashboard, LogIn, MapPin, Monitor,
   MoreHorizontal, Plus, Search, Settings2, ShieldCheck, SlidersHorizontal,
