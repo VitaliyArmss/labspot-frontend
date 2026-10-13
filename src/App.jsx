@@ -69,7 +69,6 @@ function App() {
   const [adminResources, setAdminResources] = useState([])
   const [bookings, setBookings] = useState([])
   const [authOpen, setAuthOpen] = useState(false)
-  const [authMode, setAuthMode] = useState('login')
   const [selectedResource, setSelectedResource] = useState(null)
   const [editingResource, setEditingResource] = useState(null)
   const [resourceFormOpen, setResourceFormOpen] = useState(false)
@@ -152,7 +151,6 @@ function App() {
   function openBooking(resource) {
     setSelectedResource(resource)
     if (!user) {
-      setAuthMode('login')
       setAuthOpen(true)
       notify('Войдите в аккаунт, чтобы забронировать ресурс.', 'info')
     }
@@ -161,12 +159,12 @@ function App() {
   async function handleAuthSubmit(formData) {
     setBusy(true)
     try {
-      const response = authMode === 'login' ? await api.login(formData) : await api.register(formData)
+      const response = await api.login(formData)
       localStorage.setItem('labslot_token', response.token)
       localStorage.setItem('labslot_user', JSON.stringify(response.user))
       setUser(response.user)
       setAuthOpen(false)
-      notify(authMode === 'login' ? 'Вы вошли в аккаунт.' : 'Аккаунт создан. Добро пожаловать!')
+      notify('Вы вошли в аккаунт.')
     } catch (error) {
       notify(error.message, 'error')
     } finally {
@@ -246,7 +244,7 @@ function App() {
           <button className={`nav-item ${activeView === 'overview' ? 'active' : ''}`} onClick={showOverview}>
             <LayoutDashboard size={18} /> <span>Обзор</span>
           </button>
-          <button className={`nav-item ${activeView === 'bookings' ? 'active' : ''}`} onClick={() => { if (user) setActiveView('bookings'); else { setAuthMode('login'); setAuthOpen(true) } }}>
+          <button className={`nav-item ${activeView === 'bookings' ? 'active' : ''}`} onClick={() => { if (user) setActiveView('bookings'); else setAuthOpen(true) }}>
             <CalendarDays size={18} /> <span>{isAdmin ? 'Все бронирования' : 'Мои бронирования'}</span>
             {upcomingBookings.length > 0 && <span className="nav-count">{upcomingBookings.length}</span>}
           </button>
@@ -289,7 +287,7 @@ function App() {
                 {userMenuOpen && <div className="user-popover"><div className="user-popover-heading"><strong>{user.name}</strong><span>{user.email}</span></div><button onClick={() => { setUserMenuOpen(false); logout() }}><LogIn size={15} />Выйти из аккаунта</button></div>}
               </div>
             ) : (
-              <button className="button button-dark button-small" onClick={() => { setAuthMode('login'); setAuthOpen(true) }}><LogIn size={15} /> Войти</button>
+              <button className="button button-dark button-small" onClick={() => setAuthOpen(true)}><LogIn size={15} /> Войти</button>
             )}
           </div>
         </header>
@@ -371,7 +369,7 @@ function App() {
         <footer className="main-footer"><span>© 2026 LabSlot</span><span>СОЗДАНО ДЛЯ ЛЮБОПЫТНЫХ <span className="footer-dot">✳</span></span><span>Campus edition · 1.0</span></footer>
       </main>
 
-      {authOpen && <AuthModal mode={authMode} setMode={setAuthMode} onClose={() => setAuthOpen(false)} onSubmit={handleAuthSubmit} busy={busy} />}
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onSubmit={handleAuthSubmit} busy={busy} />}
       {selectedResource && user && <BookingModal resource={selectedResource} onClose={() => setSelectedResource(null)} onBooked={async () => { setSelectedResource(null); await refreshBookings(); notify('Ресурс забронирован. Он появился в твоём расписании.') }} notify={notify} />}
       {resourceFormOpen && isAdmin && <ResourceModal resource={editingResource} onClose={() => { setResourceFormOpen(false); setEditingResource(null) }} onSave={saveResource} busy={busy} />}
       {notice && <div key={notice.key} className={`toast toast-${notice.type}`} role="status"><span className="toast-check">{notice.type === 'error' ? <X size={17} /> : notice.type === 'info' ? <Bell size={16} /> : <CheckCircle2 size={17} />}</span><span>{notice.message}</span><button onClick={() => setNotice(null)} aria-label="Закрыть уведомление"><X size={15} /></button></div>}
@@ -420,16 +418,14 @@ function BookingRow({ booking, onCancel, showUser = false }) {
   )
 }
 
-function AuthModal({ mode, setMode, onClose, onSubmit, busy }) {
-  const [name, setName] = useState('')
+function AuthModal({ onClose, onSubmit, busy }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const registering = mode === 'register'
 
   function submit(event) {
     event.preventDefault()
-    onSubmit(registering ? { name: name.trim(), email: email.trim(), password } : { email: email.trim(), password })
+    onSubmit({ email: email.trim(), password })
   }
 
   return (
@@ -437,16 +433,14 @@ function AuthModal({ mode, setMode, onClose, onSubmit, busy }) {
       <div className="auth-modal-content">
         <div className="modal-brand"><span className="brand-symbol"><FlaskConical size={20} /></span><span className="brand-name">labslot<span>.</span></span></div>
         <div className="modal-eyebrow">ТВОЁ ПРОСТРАНСТВО ДЛЯ ИДЕЙ</div>
-        <h2>{registering ? 'Создай свой аккаунт' : 'Рады видеть тебя'}</h2>
-        <p className="auth-subtitle">{registering ? 'Зарегистрируйся, чтобы бронировать ресурсы кампуса.' : 'Войди, чтобы продолжить работу над своими проектами.'}</p>
+        <h2>Вход в LabSlot</h2>
+        <p className="auth-subtitle">Войди, чтобы бронировать ресурсы и управлять своими записями.</p>
         <form onSubmit={submit} className="form-stack">
-          {registering && <label className="field-label">Имя и фамилия<input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} required minLength={2} maxLength={80} placeholder="Александр Иванов" /></label>}
-          <label className="field-label">Электронная почта<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@university.edu" /></label>
-          <label className="field-label">Пароль<span className="password-field"><input type={showPassword ? 'text' : 'password'} autoComplete={registering ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={registering ? 8 : 1} maxLength={100} placeholder={registering ? 'Не менее 8 символов' : 'Введи пароль'} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Скрыть' : 'Показать'}</button></span></label>
-          <button type="submit" className="button button-dark auth-submit" disabled={busy}>{busy ? 'Подожди…' : registering ? 'Создать аккаунт' : 'Войти в аккаунт'} <ArrowRight size={16} /></button>
+          <label className="field-label">Электронная почта<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@university.edu" /></label>
+          <label className="field-label">Пароль<span className="password-field"><input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required maxLength={100} placeholder="Введи пароль" /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Скрыть' : 'Показать'}</button></span></label>
+          <button type="submit" className="button button-dark auth-submit" disabled={busy}>{busy ? 'Проверяем…' : 'Войти в аккаунт'} <ArrowRight size={16} /></button>
         </form>
-        <div className="auth-switch">{registering ? 'Уже есть аккаунт?' : 'Впервые в LabSlot?'} <button onClick={() => setMode(registering ? 'login' : 'register')}>{registering ? 'Войти' : 'Создать аккаунт'}</button></div>
-        {!registering && <div className="demo-hint"><ShieldCheck size={15} /><span>Для демо: <strong>demo@labslot.local</strong> / <strong>Demo123!</strong></span></div>}
+        <div className="demo-hint"><ShieldCheck size={15} /><span>Регистрация закрыта. Для получения доступа обратись к администратору.</span></div>
       </div>
     </Modal>
   )
